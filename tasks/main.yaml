@@ -1,0 +1,109 @@
+- name: Install OS packages
+  ansible.builtin.package:
+    name:
+      - make
+      - build-essential
+      - libssl-dev
+      - zlib1g-dev
+      - libbz2-dev
+      - libreadline-dev
+      - libsqlite3-dev
+      - wget
+      - curl
+      - llvm
+      - libncurses5-dev
+      - xz-utils
+      - tk-dev
+      - libxml2-dev
+      - libxmlsec1-dev
+      - libffi-dev
+      - liblzma-dev
+    state: present
+  become: true
+
+- name: Install pyenv
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if [ ! -d ~/.pyenv ]; then
+      curl -sSL https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash
+      if [ $? -ne 0 ]; then
+        exit 1
+      else
+        echo status=changed
+      fi
+    fi
+  args:
+    executable: /bin/bash
+  register: task
+  changed_when: "'status=changed' in task.stdout"
+
+# ------------------------------------------------------------------------------
+# Bash
+
+- name: "bash : Add block to {{ bash_profile_middle }}"
+  blockinfile:
+    path: "{{ bash_profile_middle }}"
+    marker: "# {mark} :: ANSIBLE MANAGED BLOCK :: {{ role_name }}"
+    block: |
+      export PYENV_ROOT="$HOME/.pyenv"
+      export PATH="$PYENV_ROOT/bin:$PATH"
+      eval "$(pyenv init --path)"
+
+- name: "bash : Add block to {{ bash_bashrc_middle }}"
+  blockinfile:
+    path: "{{ bash_bashrc_middle }}"
+    marker: "# {mark} :: ANSIBLE MANAGED BLOCK :: {{ role_name }}"
+    block: |
+      eval "$(pyenv init -)"
+
+# ------------------------------------------------------------------------------
+# Zsh
+
+- name: "zsh : Add block to {{ zsh_zprofile_middle }}"
+  blockinfile:
+    path: "{{ zsh_zprofile_middle }}"
+    marker: "# {mark} :: ANSIBLE MANAGED BLOCK :: {{ role_name }}"
+    block: |
+      export PYENV_ROOT=$HOME/.pyenv
+      path+=$PYENV_ROOT/bin
+      eval "$(pyenv init --path)"
+  register: task
+
+- name: Compile {{ zsh_zprofile_middle }}
+  when: task.changed
+  ansible.builtin.command: zsh -c 'zcompile -R {{ zsh_zprofile_middle }}'
+
+- name: Add block to {{ zsh_zshrc_bottom_after_comp_init }}
+  blockinfile:
+    path: "{{ zsh_zshrc_bottom_after_comp_init }}"
+    marker: "# {mark} :: ANSIBLE MANAGED BLOCK :: {{ role_name }}"
+    block: |
+      eval "$(pyenv init -)"
+  register: task
+
+- name: Compile {{ zsh_zshrc_bottom_after_comp_init }}
+  when: task.changed
+  ansible.builtin.command: zsh -c 'zcompile -R {{ zsh_zshrc_bottom_after_comp_init }}'
+
+# ------------------------------------------------------------------------------
+
+- name: Install Python {{ pyenv_global_python_version }} and enable it globally
+  shell: |
+    set -euo pipefail
+    export PYENV_ROOT="$HOME/.pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+    eval "$(pyenv init --path)"
+    eval "$(pyenv init -)"
+    pyenv global {{ pyenv_global_python_version }} || true
+    if [ $(pyenv global) != {{ pyenv_global_python_version }} ]; then
+      pyenv install {{ pyenv_global_python_version }}
+      pyenv global {{ pyenv_global_python_version }}
+      if [ $(pyenv global) != {{ pyenv_global_python_version }} ]; then
+        exit 1
+      else
+        echo status=changed
+      fi
+    fi
+  args: { executable: /bin/bash }
+  register: task
+  changed_when: "'status=changed' in task.stdout"
