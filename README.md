@@ -1,7 +1,14 @@
-> This role is not meant to be a role that can be shared. It is only used by myself.
-> Also, instead of relying on Ansible Galaxy, I use this role in my playbooks
-> by adding the repo as a Git submodule.
+> This role is not meant to be shared. It is only used by myself.
+> I use this role in my playbooks by adding the repo as a Git submodule.
 
-# Pyenv
+# Ansible Role `pyenv`
 
-* <https://github.com/pyenv/pyenv>
+Role that installs Pyenv.
+
+- <https://github.com/pyenv/pyenv>
+
+## FAQ
+
+### How to bump version of Pyenv?
+
+Impossible. Updates to newer versions of Pyenv must be done manually.
